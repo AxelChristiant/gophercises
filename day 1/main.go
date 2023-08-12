@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type Question struct {
@@ -39,12 +40,26 @@ func readCsvProblem() []Question {
 
 func startQuiz() {
 	questions := readCsvProblem()
-	var answer string
 	totalScore := 0
+	timeUp := time.After(time.Second * time.Duration(10))
+quizLoop:
 	for index, question := range questions {
 		showQuestion(index+1, question.question)
-		answer = getAnswer()
-		totalScore += getTheScore(answer, question.answer)
+		respondTo := make(chan string)
+		go getAnswer(respondTo)
+		select {
+		case answer, ok := <-respondTo:
+			if ok {
+				totalScore += getTheScore(answer, question.answer)
+			} else {
+				break quizLoop
+			}
+
+		case <-timeUp:
+			fmt.Println("\nTIME OUT!")
+			break quizLoop
+		}
+
 	}
 	fmt.Printf("Total Score: %d", totalScore)
 
@@ -53,10 +68,11 @@ func showQuestion(numOfQuestion int, question string) {
 	fmt.Printf("Problem #%d:  %s = ", numOfQuestion, question)
 }
 
-func getAnswer() string {
+func getAnswer(ansChannel chan string) {
 	var ans string
 	fmt.Scanln(&ans)
-	return ans
+	ansChannel <- ans
+
 }
 
 func getTheScore(userAnswer string, actualAnswer string) int {
@@ -69,7 +85,5 @@ func getTheScore(userAnswer string, actualAnswer string) int {
 }
 
 func main() {
-	// records := readCsvProblem()
-	// fmt.Println(records)
 	startQuiz()
 }
